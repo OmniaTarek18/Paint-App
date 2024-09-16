@@ -1,25 +1,28 @@
-<template>
-  <Paint/>
-</template>
-
 <script>
-import Paint from './components/Paint.vue'
-
+import HomePage from './components/HomePage.vue';
 export default {
-  name: 'App',
   components: {
-    Paint
+    HomePage
   }
 }
 </script>
 
+<template>
+  <div class="content">
+    <HomePage />
+  </div>
+</template>
 <style>
+/* ATTENTION the style is not scoped !!*/
+.content {
+  /* For Full Screen */
+  height: 100vh;
+  width: 100vw;
+  background-color: rgb(193, 150, 234);
+}
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  /* To Remove White Parts at Both Sides */
+  margin: 0;
+  padding: 0;
 }
 </style>
