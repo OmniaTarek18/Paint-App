@@ -3,8 +3,10 @@
         <div class="row justify-content-evenly">
             <div class="col-1 toolbar">
                 <div class="row px-2 pt-3">
-                    <button type="button" title="undo" class="col btn btn-light bi-arrow-counterclockwise" @click="undo"></button>
-                    <button type="button" title="redo" class="col btn btn-light bi-arrow-clockwise" @click="redo"></button>
+                    <button type="button" title="undo" class="col btn btn-light bi-arrow-counterclockwise"
+                        @click="undo"></button>
+                    <button type="button" title="redo" class="col btn btn-light bi-arrow-clockwise"
+                        @click="redo"></button>
                 </div>
                 <hr>
                 <div class="row row-cols-2 px-2">
@@ -95,7 +97,8 @@ export default {
             id: 0,
             color: "#ffffff",
             strokeWidth: 2,
-            history: []        // conatains screenshots(layers after each action)
+            history: [],     // conatains screenshots(layers after each action)
+            historyStep: -1,
         }
     },
     methods: {
@@ -108,6 +111,7 @@ export default {
             this.getMousePosition();
             this.drawingShape = this.createShape();
             this.layer.add(this.drawingShape);
+            this.layer.batchDraw();
             this.id++;
 
         },
@@ -120,12 +124,34 @@ export default {
         },
         stopDrawing() {
             this.isDrawing = false;
-        },
-        undo(){
-            
-        },
-        redo(){
+            this.saveLayer();
 
+        },
+        undo() {
+            if (this.historyStep === 0) return;
+            this.historyStep--;
+            let previousLayer = this.history[this.historyStep];
+            this.layer.destroy();
+            this.layer = previousLayer.clone();
+            this.stage.add(this.layer);
+
+            this.stage.batchDraw();
+        },
+
+        redo() {
+            if (this.historyStep === this.history.length-1) return;
+            this.historyStep++;
+            let nextLayer = this.history[this.historyStep];
+            this.layer.destroy();
+            this.layer = nextLayer.clone();
+            this.stage.add(this.layer);
+
+            this.stage.batchDraw();
+        },
+        saveLayer() {
+            let savedLayer = this.layer.clone();
+            this.historyStep++;
+            this.history[this.historyStep] = savedLayer;
         },
         getMousePosition() {
             this.mouseX = this.stage.getPointerPosition().x;
@@ -289,7 +315,7 @@ export default {
             let y = this.mouseY - this.drawingShape.y();
             let innerRadius = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
             this.drawingShape.innerRadius(innerRadius);
-            this.drawingShape.outerRadius(innerRadius*2.5);
+            this.drawingShape.outerRadius(innerRadius * 2.5);
         },
         setStageSize() {
             // to ensure that shapes won't come out the board 
@@ -307,6 +333,10 @@ export default {
         this.setStageSize();
         this.layer = new Konva.Layer();
         this.stage.add(this.layer);
+
+        // save first layer (blank one)
+        this.saveLayer();
+
     },
 }
 </script>
