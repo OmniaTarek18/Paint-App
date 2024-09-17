@@ -149,6 +149,7 @@ export default {
             this.stage.batchDraw();
         },
         saveLayer() {
+            this.history.splice(this.historyStep+1);
             let savedLayer = this.layer.clone();
             this.historyStep++;
             this.history[this.historyStep] = savedLayer;
