@@ -18,7 +18,7 @@ export default {
   /* For Full Screen */
   height: 100vh;
   width: 100vw;
-  background-color: rgb(193, 150, 234);
+  background-color: #007BFF;
 }
 #app {
   /* To Remove White Parts at Both Sides */
