@@ -52,137 +52,204 @@
                 </div>
                 <hr>
                 <div class="row px-2 ">
-                    <button type="button" title="Clear All" class="col btn btn-light bi bi-x-square"></button>
+                    <button type="button" title="Copy" class="col btn btn-light bi bi-copy"></button>
                     <button type="button" title="Eraser" class="col btn btn-light bi bi-eraser"></button>
                 </div>
                 <div class="row p-2">
-                    <input type="range" class="form-range" min="1" max="20" id="customRange3" title="stroke width"
-                        v-model="strokeWidth">
+                    <input type="range" class="form-range" min="1" max="20" id="customRange3" title="size"
+                        v-model="size">
                 </div>
                 <div class="row px-2">
+                    <button type="button" title="Clear All" class="col btn btn-light bi bi-paint-bucket btn-sm"
+                        @click="fill"></button>
                     <input type="color" class="col form-control form-control-color" id="exampleColorInput" title="color"
                         v-model="color">
                 </div>
                 <hr>
                 <div class="row px-2">
                     <button type="button" title="Delete" class="col btn btn-light bi bi-trash3"></button>
-                    <button type="button" title="Copy" class="col btn btn-light bi bi-copy"></button>
+                    <button type="button" title="Clear All" class="col btn btn-light bi bi-x-square"
+                        @click="clearAll"></button>
                 </div>
                 <hr>
                 <div class="row px-2 pb-3">
-                    <button type="button" title="import" class="col btn btn-light bi bi-upload"></button>
-                    <button type="button" title="save" class="col btn btn-light bi bi-download"></button>
+                    <button type="button" title="import" class="col btn btn-light bi bi-upload"
+                        @click="loadFile"></button>
+                    <button type="button" title="save" class="col btn btn-light bi bi-download dropdown-toggle btn-sm"
+                        data-bs-toggle="dropdown" aria-expanded="false"></button>
+                    <ul class="dropdown-menu col-1">
+                        <li class="dropdown-item" href="#" @click="saveFile"><a>JSON</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li class="dropdown-item" href="#" @click="save"><a>XML</a></li>
+                    </ul>
                 </div>
             </div>
             <div class="col-9 p-0 board" id="board" @mousedown="startDrawing" @mouseup="stopDrawing"
                 @mousemove="updateDrawing">
             </div>
         </div>
+
     </div>
+
 </template>
 
 <script>
 import Konva from "konva";
+
 export default {
     data() {
         return {
             stage: null,
             layer: null,
+            tr: null,
             mouseX: 0,
             mouseY: 0,
             hover: false,
             isDrawing: false,
+            isTransforming: false,
+            isColoring: false,
             drawingShapeType: '',
             drawingShape: null,
             id: 0,
             color: "#ffffff",
-            strokeWidth: 2,
+            size: 2,
             history: [],     // conatains screenshots(layers after each action)
             historyStep: -1,
         }
     },
     methods: {
-        draw(type) {
-            this.drawingShapeType = type;
+        async loadFile() {
+            const [fileHandle] = await window.showOpenFilePicker();
+            const file = await fileHandle.getFile();
+            const filedata = await file.text();
+            this.layer = Konva.Node.create(filedata, this.stage);
+            this.stage.add(this.layer)
+            return file;
+        },
+        async saveFile() {
+            const layerJSON = this.layer.toJSON();
+            const jsonBlob = new Blob([layerJSON], { type: 'application/json' });
+            const newHandle = await window.showSaveFilePicker();
+            const writableStream = await newHandle.createWritable();
+            await writableStream.write(jsonBlob);
+            await writableStream.close();
         },
         startDrawing() {
+            if (this.drawingShapeType == '' || this.isTransforming) return;
+
+            this.isColoring = false;
             this.isDrawing = true;
-            // intialize the shape and add it to the layer
+            this.hasMoved = false;
             this.getMousePosition();
             this.drawingShape = this.createShape();
             this.layer.add(this.drawingShape);
             this.layer.batchDraw();
             this.id++;
-
         },
         updateDrawing() {
             if (!this.isDrawing || this.drawingShape == null) return;
             this.getMousePosition();
             this.updateShape();
             this.layer.batchDraw();
-
         },
         stopDrawing() {
+            if (!this.isDrawing) return;
             this.isDrawing = false;
+            console.log(this.drawingShape)
+            this.isTransforming = true;
+            this.startTransformation();
+        },
+        startTransformation() {
+            console.log(this.drawingShape);
+            if (!this.isTransforming) return;
+            this.drawingShape.draggable(true);
+            this.tr.nodes([this.drawingShape]);
+            this.stage.on('click tap', (e) => {
+                this.endTransformation();
+            });
+        },
+        endTransformation() {
+            this.drawingShape.draggable(false);
+            this.isTransforming = false;
+            this.tr.nodes([]);
             this.saveLayer();
+            console.log("done babe");
+            this.stage.off('click tap');
+        },
+        fill() {
+            this.isDrawing = false;
+            this.isTransforming = false;
+            this.isColoring = true;
+            this.drawingShapeType = '';
 
         },
         undo() {
             if (this.historyStep === 0) return;
             this.historyStep--;
-            let previousLayer = this.history[this.historyStep];
-            this.layer.destroy();
-            this.layer = previousLayer.clone();
-            this.stage.add(this.layer);
-
-            this.stage.batchDraw();
+            this.changeStageLayer();
         },
-
         redo() {
-            if (this.historyStep === this.history.length-1) return;
+            if (this.historyStep === this.history.length - 1) return;
             this.historyStep++;
-            let nextLayer = this.history[this.historyStep];
-            this.layer.destroy();
-            this.layer = nextLayer.clone();
-            this.stage.add(this.layer);
-
-            this.stage.batchDraw();
+            this.changeStageLayer();
         },
-        saveLayer() {
-            this.history.splice(this.historyStep+1);
-            let savedLayer = this.layer.clone();
-            this.historyStep++;
-            this.history[this.historyStep] = savedLayer;
+        clearAll() {
+            this.history.splice(1);
+            this.historyStep = 0;
+            this.changeStageLayer();
+        },
+        download() {
+            const link = document.createElement('a');
+            link.href = 'Untitled.json';
+            link.download = 'YourFile.pdf'; // The name of the file to save
+            link.click(); // Trigger the download
+        },
+        upload() {
+            this.convertJsonToXml();
         },
         getMousePosition() {
             this.mouseX = this.stage.getPointerPosition().x;
             this.mouseY = this.stage.getPointerPosition().y;
         },
-
-
-
-
         createShape() {
+            let shape;
             switch (this.drawingShapeType) {
                 case "square":
-                    return this.createSquare();
+                    shape = this.createSquare();
+                    break;
                 case "rectangle":
-                    return this.createRect();
+                    shape = this.createRect();
+                    break;
                 case "circle":
-                    return this.createCircle();
+                    shape = this.createCircle();
+                    break;
                 case "triangle":
-                    return this.createPolygon(3);
+                    shape = this.createPolygon(3);
+                    break;
                 case "star":
-                    return this.createStar();
+                    shape = this.createStar();
+                    break;
                 case "hexagon":
-                    return this.createPolygon(6);
+                    shape = this.createPolygon(6);
+                    break;
                 case "pentagon":
-                    return this.createPolygon(5);
+                    shape = this.createPolygon(5);
+                    break;
                 case "ellipse":
-                    return this.createEllipse();
+                    shape = this.createEllipse();
+                    break;
                 case "line":
-                    return this.createLine();
+                    shape = this.createLine();
+                    break;
             }
+            shape.on('click', (e) => {
+                if (!this.isColoring) return;
+                shape.fill(this.color);
+                this.saveLayer();
+            })
+            return shape;
         }
         ,
         updateShape() {
@@ -219,7 +286,7 @@ export default {
                 radius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             });
         },
         createSquare() {
@@ -231,7 +298,7 @@ export default {
                 height: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             });
         },
         createRect() {
@@ -243,7 +310,7 @@ export default {
                 height: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             });
         },
         createEllipse() {
@@ -255,7 +322,7 @@ export default {
                 radiusY: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             })
         },
         createPolygon(numberOfSides) {
@@ -267,7 +334,7 @@ export default {
                 radius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             });
         },
         createStar() {
@@ -280,11 +347,11 @@ export default {
                 outerRadius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.strokeWidth,
+                strokeWidth: this.size,
             });
         },
         updateLine() {
-
+            console.log(this.convertJsonToXml());
         },
         updateSquare() {
             let width = this.mouseX - this.drawingShape.x();
@@ -318,6 +385,19 @@ export default {
             this.drawingShape.innerRadius(innerRadius);
             this.drawingShape.outerRadius(innerRadius * 2.5);
         },
+        saveLayer() {
+            this.history.splice(this.historyStep + 1);
+            let savedLayer = this.layer.clone();
+            this.historyStep++;
+            this.history[this.historyStep] = savedLayer;
+        },
+        changeStageLayer() {
+            let newLayerr = this.history[this.historyStep];
+            this.layer.destroy();
+            this.layer = newLayerr.clone();
+            this.stage.add(this.layer);
+            this.stage.batchDraw();
+        },
         setStageSize() {
             // to ensure that shapes won't come out the board 
             const board = document.getElementById("board"); // need to be done after render the elements 
@@ -334,7 +414,8 @@ export default {
         this.setStageSize();
         this.layer = new Konva.Layer();
         this.stage.add(this.layer);
-
+        this.tr = new Konva.Transformer();
+        this.layer.add(this.tr);
         // save first layer (blank one)
         this.saveLayer();
 
@@ -342,16 +423,4 @@ export default {
 }
 </script>
 
-<style>
-.board {
-    background-color: #f6f8fa;
-    border-radius: 5px;
-}
-
-.toolbar {
-    background-color: #f6f8fa;
-    border-color: rgb(255, 193, 7);
-    border-width: 10px;
-    border-radius: 5px;
-}
-</style>
+<style scoped src="./styles/style-homepage.css"></style>

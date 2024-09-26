@@ -1,0 +1,11 @@
+.board {
+    background-color: #f6f8fa;
+    border-radius: 5px;
+}
+
+.toolbar {
+    background-color: #f6f8fa;
+    border-color: rgb(255, 193, 7);
+    border-width: 10px;
+    border-radius: 5px;
+}
