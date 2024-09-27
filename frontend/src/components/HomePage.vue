@@ -52,22 +52,26 @@
                 </div>
                 <hr>
                 <div class="row px-2 ">
-                    <button type="button" title="Copy" class="col btn btn-light bi bi-copy"></button>
-                    <button type="button" title="Eraser" class="col btn btn-light bi bi-eraser"></button>
+                    <button type="button" title="Copy" class="col btn btn-light bi bi-copy"
+                        @click="setOption('copy')"></button>
+                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool11"
+                        value="eraser">
+                    <label class="col btn btn-light bi bi-eraser" for="tool11" title="Eraser"></label>
                 </div>
                 <div class="row p-2">
                     <input type="range" class="form-range" min="1" max="20" id="customRange3" title="size"
-                        v-model="size">
+                        v-model="size" @change="setOption('strokewidth')">
                 </div>
                 <div class="row px-2">
                     <button type="button" title="Clear All" class="col btn btn-light bi bi-paint-bucket btn-sm"
-                        @click="fill"></button>
+                        @click="setOption('fill')"></button>
                     <input type="color" class="col form-control form-control-color" id="exampleColorInput" title="color"
                         v-model="color">
                 </div>
                 <hr>
                 <div class="row px-2">
-                    <button type="button" title="Delete" class="col btn btn-light bi bi-trash3"></button>
+                    <button type="button" title="Delete" class="col btn btn-light bi bi-trash3"
+                        @click="setOption('delete')"></button>
                     <button type="button" title="Clear All" class="col btn btn-light bi bi-x-square"
                         @click="clearAll"></button>
                 </div>
@@ -109,9 +113,10 @@ export default {
             hover: false,
             isDrawing: false,
             isTransforming: false,
-            isColoring: false,
+            option: '',
             drawingShapeType: '',
             drawingShape: null,
+            selectedShape: null,
             id: 0,
             color: "#ffffff",
             size: 2,
@@ -137,9 +142,12 @@ export default {
             await writableStream.close();
         },
         startDrawing() {
-            if (this.drawingShapeType == '' || this.isTransforming) return;
+            if (this.drawingShapeType == '') {
+                this.selectShape();
+                return;
+            }
+            if (this.isTransforming) return;
 
-            this.isColoring = false;
             this.isDrawing = true;
             this.hasMoved = false;
             this.getMousePosition();
@@ -157,12 +165,11 @@ export default {
         stopDrawing() {
             if (!this.isDrawing) return;
             this.isDrawing = false;
-            console.log(this.drawingShape)
+            if (this.drawingShapeType == 'pencil' || this.drawingShapeType == 'eraser') return;
             this.isTransforming = true;
             this.startTransformation();
         },
         startTransformation() {
-            console.log(this.drawingShape);
             if (!this.isTransforming) return;
             this.drawingShape.draggable(true);
             this.tr.nodes([this.drawingShape]);
@@ -175,15 +182,37 @@ export default {
             this.isTransforming = false;
             this.tr.nodes([]);
             this.saveLayer();
-            console.log("done babe");
             this.stage.off('click tap');
         },
-        fill() {
-            this.isDrawing = false;
-            this.isTransforming = false;
-            this.isColoring = true;
-            this.drawingShapeType = '';
-
+        selectShape() {
+            this.getMousePosition();
+            this.selectedShape = this.stage.getIntersection({ x: this.mouseX, y: this.mouseY });
+            if (this.option != '' && this.selectedShape) this.applyOption();
+        },
+        applyOption() {
+            switch (this.option) {
+                case 'fill':
+                    this.selectedShape.fill(this.color);
+                    break;
+                case 'copy':
+                    this.drawingShape = this.selectedShape.clone();
+                    this.layer.add(this.drawingShape);
+                    this.isTransforming = true;
+                    this.option = '';
+                    this.startTransformation();
+                    break;
+                case 'delete':
+                    this.selectedShape.destroy();
+                    break;
+                case 'strokewidth':
+                    this.selectedShape.strokeWidth(parseInt(this.size));
+                    break;
+            }
+            this.saveLayer();
+        },
+        setOption(option) {
+            this.resetFlags();
+            this.option = option;
         },
         undo() {
             if (this.historyStep === 0) return;
@@ -196,60 +225,46 @@ export default {
             this.changeStageLayer();
         },
         clearAll() {
+            this.isDrawing = false;
+            this.isTransforming = false;
+            this.drawingShape = null;
+            this.drawingShapeType = '';
             this.history.splice(1);
             this.historyStep = 0;
             this.changeStageLayer();
         },
-        download() {
-            const link = document.createElement('a');
-            link.href = 'Untitled.json';
-            link.download = 'YourFile.pdf'; // The name of the file to save
-            link.click(); // Trigger the download
-        },
-        upload() {
-            this.convertJsonToXml();
-        },
+
         getMousePosition() {
             this.mouseX = this.stage.getPointerPosition().x;
             this.mouseY = this.stage.getPointerPosition().y;
         },
+        resetFlags() {
+            this.isDrawing = false;
+            this.isTransforming = false;
+            this.drawingShapeType = '';
+            if(this.isTransforming) this.endTransformation();
+        },
         createShape() {
-            let shape;
             switch (this.drawingShapeType) {
                 case "square":
-                    shape = this.createSquare();
-                    break;
+                    return this.createSquare();
                 case "rectangle":
-                    shape = this.createRect();
-                    break;
+                    return this.createRect();
                 case "circle":
-                    shape = this.createCircle();
-                    break;
+                    return this.createCircle();
                 case "triangle":
-                    shape = this.createPolygon(3);
-                    break;
+                    return this.createPolygon(3);
                 case "star":
-                    shape = this.createStar();
-                    break;
+                    return this.createStar();
                 case "hexagon":
-                    shape = this.createPolygon(6);
-                    break;
+                    return this.createPolygon(6);
                 case "pentagon":
-                    shape = this.createPolygon(5);
-                    break;
+                    return this.createPolygon(5);
                 case "ellipse":
-                    shape = this.createEllipse();
-                    break;
-                case "line":
-                    shape = this.createLine();
-                    break;
+                    return this.createEllipse();
+                default:
+                    return this.createLine();
             }
-            shape.on('click', (e) => {
-                if (!this.isColoring) return;
-                shape.fill(this.color);
-                this.saveLayer();
-            })
-            return shape;
         }
         ,
         updateShape() {
@@ -269,14 +284,27 @@ export default {
                 case "line":
                     this.updateLine();
                     break;
+                case "pencil":
+                case "eraser":
+                    this.updateBrush();
+                    break;
                 default:
                     this.updatePolygan();
+                    break;
 
             }
         },
 
         createLine() {
-
+            let color = 'black';
+            if (this.drawingShapeType === 'eraser') color = 'white';
+            return new Konva.Line({
+                points: [this.mouseX, this.mouseY],
+                lineCap: 'round',
+                lineJoin: 'round',
+                stroke: color,
+                strokeWidth: parseInt(this.size),
+            })
         },
         createCircle() {
             return new Konva.Circle({
@@ -286,7 +314,7 @@ export default {
                 radius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             });
         },
         createSquare() {
@@ -298,7 +326,7 @@ export default {
                 height: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             });
         },
         createRect() {
@@ -310,7 +338,7 @@ export default {
                 height: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             });
         },
         createEllipse() {
@@ -322,7 +350,7 @@ export default {
                 radiusY: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             })
         },
         createPolygon(numberOfSides) {
@@ -334,7 +362,7 @@ export default {
                 radius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             });
         },
         createStar() {
@@ -347,11 +375,18 @@ export default {
                 outerRadius: 0,
                 fill: this.color,
                 stroke: 'black',
-                strokeWidth: this.size,
+                strokeWidth: parseInt(this.size),
             });
         },
+        updateBrush() {
+            let points = this.drawingShape.points().concat([this.mouseX, this.mouseY]);
+            this.drawingShape.points(points);
+        },
         updateLine() {
-            console.log(this.convertJsonToXml());
+            let x = this.drawingShape.points()[0];
+            let y = this.drawingShape.points()[1];
+            let points = [x, y, this.mouseX, this.mouseY];
+            this.drawingShape.points(points);
         },
         updateSquare() {
             let width = this.mouseX - this.drawingShape.x();
