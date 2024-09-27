@@ -165,7 +165,10 @@ export default {
         stopDrawing() {
             if (!this.isDrawing) return;
             this.isDrawing = false;
-            if (this.drawingShapeType == 'pencil' || this.drawingShapeType == 'eraser') return;
+            if (this.drawingShapeType == 'pencil' || this.drawingShapeType == 'eraser') {
+                this.saveLayer();
+                return ;
+            };
             this.isTransforming = true;
             this.startTransformation();
         },
@@ -195,10 +198,9 @@ export default {
                     this.selectedShape.fill(this.color);
                     break;
                 case 'copy':
-                    this.drawingShape = this.selectedShape.clone();
-                    this.layer.add(this.drawingShape);
-                    this.isTransforming = true;
+                    this.cloneShape();
                     this.option = '';
+                    this.isTransforming = true;
                     this.startTransformation();
                     break;
                 case 'delete':
@@ -224,6 +226,12 @@ export default {
             this.historyStep++;
             this.changeStageLayer();
         },
+        cloneShape() {
+            this.drawingShape = this.selectedShape.clone();
+            console.log("done")
+            this.layer.add(this.drawingShape);
+            this.layer.batchDraw();
+        },
         clearAll() {
             this.isDrawing = false;
             this.isTransforming = false;
@@ -240,9 +248,8 @@ export default {
         },
         resetFlags() {
             this.isDrawing = false;
-            this.isTransforming = false;
             this.drawingShapeType = '';
-            if(this.isTransforming) this.endTransformation();
+            if (this.isTransforming) this.endTransformation();
         },
         createShape() {
             switch (this.drawingShapeType) {
@@ -427,10 +434,13 @@ export default {
             this.history[this.historyStep] = savedLayer;
         },
         changeStageLayer() {
+            this.tr.destroy();
             let newLayerr = this.history[this.historyStep];
             this.layer.destroy();
             this.layer = newLayerr.clone();
             this.stage.add(this.layer);
+            this.tr = new Konva.Transformer();
+            this.layer.add(this.tr);
             this.stage.batchDraw();
         },
         setStageSize() {
