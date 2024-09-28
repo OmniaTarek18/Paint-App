@@ -2,93 +2,18 @@
     <div class="background container-fluid p-5 h-100">
         <div class="row justify-content-evenly">
             <div class="col-1 toolbar">
-                <div class="row px-2 pt-3">
-                    <button type="button" title="undo" class="col btn btn-light bi-arrow-counterclockwise"
-                        @click="undo"></button>
-                    <button type="button" title="redo" class="col btn btn-light bi-arrow-clockwise"
-                        @click="redo"></button>
-                </div>
-                <hr>
-                <div class="row row-cols-2 px-2">
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool1"
-                        value="pencil">
-                    <label class="col btn btn-light" for="tool1" title="Pencil">✎</label>
+                <ToolBar 
+                v-model:type="drawingShapeType"
+                v-model:color="color"
+                v-model:strokewidth="size"
+                @undo="undo"
+                @redo="redo"
+                @load="loadFile"
+                @save="saveFile"
+                @set-option="setOption"
+                @clear-all="clearAll">
 
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool2"
-                        value="line">
-                    <label class="col btn btn-light" for="tool2" title="Line">╱</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool3"
-                        value="circle">
-                    <label class="col btn btn-light" for="tool3" title="Circle">〇</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool4"
-                        value="square">
-                    <label class="col btn btn-light" for="tool4" title="Square">☐</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool5"
-                        value="rectangle">
-                    <label class="col btn btn-light" for="tool5" title="Rectangle">▭</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool6"
-                        value="triangle">
-                    <label class="col btn btn-light" for="tool6" title="Triangle">△</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool7"
-                        value="ellipse">
-                    <label class="col btn btn-light" for="tool7" title="Ellipse">⬭</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool8"
-                        value="pentagon">
-                    <label class="col btn btn-light" for="tool8" title="Pentagon">⬠</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool9"
-                        value="hexagon">
-                    <label class="col btn btn-light" for="tool9" title="Hexagon">⬡</label>
-
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool10"
-                        value="star">
-                    <label class="col btn btn-light" for="tool10" title="Star">☆</label>
-                </div>
-                <hr>
-                <div class="row px-2 ">
-                    <button type="button" title="Copy" class="col btn btn-light bi bi-copy"
-                        @click="setOption('copy')"></button>
-                    <input type="radio" v-model="drawingShapeType" class="btn-check" name="tools" id="tool11"
-                        value="eraser">
-                    <label class="col btn btn-light bi bi-eraser" for="tool11" title="Eraser"></label>
-                </div>
-                <div class="row p-2">
-                    <input type="range" class="form-range" min="1" max="20" id="customRange3" title="size"
-                        v-model="size" @change="setOption('strokewidth')">
-                </div>
-                <div class="row px-2">
-                    <button type="button" title="Clear All" class="col btn btn-light bi bi-paint-bucket btn-sm"
-                        @click="setOption('fill')"></button>
-                    <input type="color" class="col form-control form-control-color" id="exampleColorInput" title="color"
-                        v-model="color">
-                </div>
-                <hr>
-                <div class="row px-2">
-                    <button type="button" title="Delete" class="col btn btn-light bi bi-trash3"
-                        @click="setOption('delete')"></button>
-                    <button type="button" title="Clear All" class="col btn btn-light bi bi-x-square"
-                        @click="clearAll"></button>
-                </div>
-                <hr>
-                <div class="row px-2 pb-3">
-                    <button type="button" title="import" class="col btn btn-light bi bi-upload"
-                        @click="loadFile"></button>
-                    <button type="button" title="save" class="col btn btn-light bi bi-download dropdown-toggle btn-sm"
-                        data-bs-toggle="dropdown" aria-expanded="false"></button>
-                    <ul class="dropdown-menu col-1">
-                        <li class="dropdown-item" href="#" @click="saveFile"><a>JSON</a></li>
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li class="dropdown-item" href="#" @click="save"><a>XML</a></li>
-                    </ul>
-                </div>
+                </ToolBar>
             </div>
             <div class="col-9 p-0 board" id="board" @mousedown="startDrawing" @mouseup="stopDrawing"
                 @mousemove="updateDrawing">
@@ -101,8 +26,12 @@
 
 <script>
 import Konva from "konva";
-
+import { createShape, updateShape } from "../utility functions/drawing";
+import ToolBar from "./ToolBar.vue";
 export default {
+    components:{
+        ToolBar
+    },
     data() {
         return {
             stage: null,
@@ -114,7 +43,7 @@ export default {
             isDrawing: false,
             isTransforming: false,
             option: '',
-            drawingShapeType: '',
+            drawingShapeType: 'pencil',
             drawingShape: null,
             selectedShape: null,
             id: 0,
@@ -151,7 +80,7 @@ export default {
             this.isDrawing = true;
             this.hasMoved = false;
             this.getMousePosition();
-            this.drawingShape = this.createShape();
+            this.drawingShape = createShape(this.drawingShapeType, this.mouseX, this.mouseY, this.size, this.color, this.id);
             this.layer.add(this.drawingShape);
             this.layer.batchDraw();
             this.id++;
@@ -159,7 +88,7 @@ export default {
         updateDrawing() {
             if (!this.isDrawing || this.drawingShape == null) return;
             this.getMousePosition();
-            this.updateShape();
+            updateShape(this.drawingShapeType, this.drawingShape, this.mouseX, this.mouseY);
             this.layer.batchDraw();
         },
         stopDrawing() {
@@ -167,7 +96,7 @@ export default {
             this.isDrawing = false;
             if (this.drawingShapeType == 'pencil' || this.drawingShapeType == 'eraser') {
                 this.saveLayer();
-                return ;
+                return;
             };
             this.isTransforming = true;
             this.startTransformation();
@@ -251,182 +180,7 @@ export default {
             this.drawingShapeType = '';
             if (this.isTransforming) this.endTransformation();
         },
-        createShape() {
-            switch (this.drawingShapeType) {
-                case "square":
-                    return this.createSquare();
-                case "rectangle":
-                    return this.createRect();
-                case "circle":
-                    return this.createCircle();
-                case "triangle":
-                    return this.createPolygon(3);
-                case "star":
-                    return this.createStar();
-                case "hexagon":
-                    return this.createPolygon(6);
-                case "pentagon":
-                    return this.createPolygon(5);
-                case "ellipse":
-                    return this.createEllipse();
-                default:
-                    return this.createLine();
-            }
-        }
-        ,
-        updateShape() {
-            switch (this.drawingShapeType) {
-                case "square":
-                    this.updateSquare();
-                    break;
-                case "rectangle":
-                    this.updateRect();
-                    break;
-                case "star":
-                    this.updateStar();
-                    break;
-                case "ellipse":
-                    this.updateEllipse();
-                    break;
-                case "line":
-                    this.updateLine();
-                    break;
-                case "pencil":
-                case "eraser":
-                    this.updateBrush();
-                    break;
-                default:
-                    this.updatePolygan();
-                    break;
 
-            }
-        },
-
-        createLine() {
-            let color = 'black';
-            if (this.drawingShapeType === 'eraser') color = 'white';
-            return new Konva.Line({
-                points: [this.mouseX, this.mouseY],
-                lineCap: 'round',
-                lineJoin: 'round',
-                stroke: color,
-                strokeWidth: parseInt(this.size),
-            })
-        },
-        createCircle() {
-            return new Konva.Circle({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                radius: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            });
-        },
-        createSquare() {
-            return new Konva.Rect({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                width: 0,
-                height: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            });
-        },
-        createRect() {
-            return new Konva.Rect({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                width: 0,
-                height: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            });
-        },
-        createEllipse() {
-            return new Konva.Ellipse({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                radiusX: 0,
-                radiusY: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            })
-        },
-        createPolygon(numberOfSides) {
-            return new Konva.RegularPolygon({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                sides: numberOfSides,
-                radius: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            });
-        },
-        createStar() {
-            return new Konva.Star({
-                id: `${this.id}`,
-                x: this.mouseX,
-                y: this.mouseY,
-                numPoints: 5,
-                innerRadius: 0,
-                outerRadius: 0,
-                fill: this.color,
-                stroke: 'black',
-                strokeWidth: parseInt(this.size),
-            });
-        },
-        updateBrush() {
-            let points = this.drawingShape.points().concat([this.mouseX, this.mouseY]);
-            this.drawingShape.points(points);
-        },
-        updateLine() {
-            let x = this.drawingShape.points()[0];
-            let y = this.drawingShape.points()[1];
-            let points = [x, y, this.mouseX, this.mouseY];
-            this.drawingShape.points(points);
-        },
-        updateSquare() {
-            let width = this.mouseX - this.drawingShape.x();
-            let height = this.mouseY - this.drawingShape.y();
-            let side = (width + height) / 2;
-            this.drawingShape.width(side);
-            this.drawingShape.height(side);
-        },
-        updateRect() {
-            let width = this.mouseX - this.drawingShape.x();
-            let height = this.mouseY - this.drawingShape.y();
-            this.drawingShape.width(width);
-            this.drawingShape.height(height);
-        },
-        updatePolygan() {
-            let x = this.mouseX - this.drawingShape.x();
-            let y = this.mouseY - this.drawingShape.y();
-            let radius = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
-            this.drawingShape.radius(radius);
-        },
-        updateEllipse() {
-            let x = this.mouseX - this.drawingShape.x();
-            let y = this.mouseY - this.drawingShape.y();
-            this.drawingShape.radiusX(Math.abs(x));
-            this.drawingShape.radiusY(Math.abs(y));
-        },
-        updateStar() {
-            let x = this.mouseX - this.drawingShape.x();
-            let y = this.mouseY - this.drawingShape.y();
-            let innerRadius = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
-            this.drawingShape.innerRadius(innerRadius);
-            this.drawingShape.outerRadius(innerRadius * 2.5);
-        },
         saveLayer() {
             this.history.splice(this.historyStep + 1);
             let savedLayer = this.layer.clone();
@@ -468,4 +222,4 @@ export default {
 }
 </script>
 
-<style scoped src="./styles/style-homepage.css"></style>
+<style scoped src="../styles/style-homepage.css"></style>
